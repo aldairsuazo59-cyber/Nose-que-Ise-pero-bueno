@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Feliz Cumpleaños Mi Amor!</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #05020a;
+            font-family: 'Poppins', sans-serif;
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .romantic-font {
+            font-family: 'Dancing Script', cursive;
+        }
+
+        /* Glassmorphism UI Overlay */
+        .glass-card {
+            background: rgba(255, 192, 203, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 105, 180, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(255, 20, 147, 0.2);
+        }
+
+        .glow-text {
+            text-shadow: 0 0 10px rgba(255, 105, 180, 0.8), 0 0 20px rgba(255, 20, 147, 0.5), 0 0 30px rgba(255, 0, 128, 0.3);
+        }
+
+        .glow-title {
+            text-shadow: 0 0 15px #ff2a85, 0 0 30px #ff758c;
+        }
+
+        /* Floating 2D overlay hearts */
+        .heart-particle {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 4s ease-in infinite;
+            opacity: 0;
+            z-index: 10;
+        }
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) scale(0.8) rotate(0deg);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translateY(-100vh) scale(1.3) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Pulsing main message */
+        @keyframes pulseGlow {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 15px rgba(255, 0, 128, 0.8));
+            }
+            50% {
+                transform: scale(1.05);
+                filter: drop-shadow(0 0 25px rgba(255, 105, 180, 1));
+            }
+        }
+
+        .pulse-element {
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-white overflow-hidden">
+
+    <!-- Enlace directo de audio en internet (Manuel Medrano - Bajo El Agua) -->
+    <audio id="bg-audio" loop src="https://ia801503.us.archive.org/15/items/manuel-medrano-bajo-el-agua/Manuel%20Medrano%20-%20Bajo%20El%20Agua.mp3" crossorigin="anonymous" preload="auto"></audio>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay Header -->
+    <div class="fixed top-4 left-0 w-full z-20 flex justify-between items-center px-6 pointer-events-none">
+        <div class="glass-card px-5 py-2.5 rounded-full flex items-center gap-3 pointer-events-auto border border-pink-500/30">
+            <span class="text-pink-400 text-xl"><i class="fa-solid fa-heart animate-bounce"></i></span>
+            <span class="font-bold tracking-widest text-sm uppercase text-pink-200">Para la niña más linda</span>
+        </div>
+
+        <button id="audio-toggle" class="glass-card w-12 h-12 rounded-full flex items-center justify-center pointer-events-auto hover:bg-pink-500/20 transition-all border border-pink-500/40 text-pink-300 hover:text-white">
+            <i id="audio-icon" class="fa-solid fa-music text-lg"></i>
+        </button>
+    </div>
+
+    <!-- Main Title Overlay (Bottom) -->
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20 text-center w-full px-4 pointer-events-none">
+        <div class="inline-block glass-card px-8 py-4 rounded-3xl pulse-element max-w-xl border border-pink-400/40">
+            <h1 class="romantic-font text-4xl sm:text-6xl font-bold text-pink-300 glow-title mb-1">
+                ¡Feliz Cumpleaños!
+            </h1>
+            <p class="text-xs sm:text-sm font-semibold tracking-wider text-pink-100 uppercase opacity-90">
+                🎉 ¡Al fin DNI azul! 🆔 • Eres mi universo entero ✨
+            </p>
+        </div>
+    </div>
+
+    <!-- Instruction Badge -->
+    <div class="fixed bottom-2 left-6 z-20 hidden md:flex items-center gap-2 text-xs text-pink-300/70 pointer-events-none">
+        <i class="fa-solid fa-hand-pointer animate-pulse"></i> Arrastra para rotar | Scroll para zoom
+    </div>
+
+    <!-- Floating hearts container -->
+    <div id="hearts-container" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+    <script>
+        // --- 1. CONFIGURACIÓN Y MENSAJES AMPLIADOS ---
+        const messages = [
+            // Mensajes principales y cumpleaños
+            "¡Feliz Cumpleaños! 🎉",
+            "¡Al fin DNI azul! 🆔",
+            "Para la niña más linda 💖",
+            "Nuestra cumpleañera 🎂",
+            "Un año más siendo la mejor 🎈",
+            "Pide un deseo ✨",
+
+            // Expresiones de afecto
+            "Te quiero muchísimo ❤️",
+            "Eres la mejor 💕",
+            "La más perfecta ✨",
+            "La más hermosa 🥰",
+            "Mi persona favorita 👑",
+            "Eres increíble 🌸",
+
+            // Mensajes emotivos y profundos
+            "Siempre me haces sonreír ✨",
+            "Tu risa ilumina todo 🌟",
+            "Qué suerte tenerte en mi vida 🍀",
+            "La más brillante del universo 🌌",
+            "Especial e inolvidable 💎",
+            "Sigue brillando siempre 💫",
+            "Un abrazo gigante 🤗",
+            "Mi lugar favorito es contigo 💓",
+            "Orgulloso de ti 👏",
+            "Hermosa por dentro y por fuera 🌷",
+            "Iluminas mis días ☀️",
+            "Única e irrepetible 🪐",
+            "Nunca dejes de soñar 🌠",
+            "Gracias por existir 💖",
+            "El regalo eres tú 🎁"
+        ];
+
+        // --- 2. GENERACIÓN DE TEXTURAS DINÁMICAS (Canvas 2D) ---
+        function createHeartPlanetTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#ff4b8b');
+            grad.addColorStop(0.5, '#ff758c');
+            grad.addColorStop(1, '#ff2a6d');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 350; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 18 + 8;
+                const opacity = Math.random() * 0.7 + 0.3;
+                const color = Math.random() > 0.3 ? '#ffffff' : '#ffe0e9';
+
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate((Math.random() - 0.5) * 0.5);
+                ctx.globalAlpha = opacity;
+                ctx.fillStyle = color;
+
+                ctx.beginPath();
+                const topCurveHeight = size * 0.3;
+                ctx.moveTo(0, topCurveHeight);
+                ctx.bezierCurveTo(0, 0, -size / 2, 0, -size / 2, topCurveHeight);
+                ctx.bezierCurveTo(-size / 2, (size + topCurveHeight) / 2, 0, size, 0, size);
+                ctx.bezierCurveTo(0, size, size / 2, (size + topCurveHeight) / 2, size / 2, topCurveHeight);
+                ctx.bezierCurveTo(size / 2, 0, 0, 0, 0, topCurveHeight);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            for(let j = 0; j < 500; j++) {
+                ctx.fillStyle = "rgba(255, 255, 255, " + Math.random() + ")";
+                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createMoonTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#dcdde1';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 80; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const r = Math.random() * 15 + 3;
+
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(160, 168, 180, 0.4)';
+                ctx.fill();
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createTextCardTexture(text) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = 'rgba(20, 5, 25, 0.75)';
+            ctx.roundRect(10, 10, canvas.width - 20, canvas.height - 20, 20);
+            ctx.fill();
+
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#ff69b4';
+            ctx.stroke();
+
+            ctx.shadowColor = '#ff1493';
+            ctx.shadowBlur = 12;
+            ctx.font = 'Bold 30px "Poppins", sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // --- 3. ESCENA THREE.JS ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x05020a, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 28);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 50;
+        controls.minDistance = 10;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.8;
+
+        // --- 4. ILUMINACIÓN ---
+        const ambientLight = new THREE.AmbientLight(0xffd1dc, 1.2);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.PointLight(0xff69b4, 2, 80);
+        mainLight.position.set(10, 20, 15);
+        scene.add(mainLight);
+
+        const backLight = new THREE.PointLight(0x9b59b6, 1.5, 60);
+        backLight.position.set(-15, -10, -15);
+        scene.add(backLight);
+
+        // --- 5. OBJETOS ESPACIALES ---
+        const planetGeo = new THREE.SphereGeometry(6, 64, 64);
+        const planetMat = new THREE.MeshStandardMaterial({
+            map: createHeartPlanetTexture(),
+            roughness: 0.4,
+            metalness: 0.1,
+            emissive: 0x330011,
+            emissiveIntensity: 0.2
+        });
+        const planet = new THREE.Mesh(planetGeo, planetMat);
+        scene.add(planet);
+
+        const ringGeo = new THREE.RingGeometry(8, 12, 64);
+        const pos = ringGeo.attributes.position;
+        const uv = ringGeo.attributes.uv;
+        for (let i = 0; i < pos.count; i++) {
+            const vertex = new THREE.Vector3().fromBufferAttribute(pos, i);
+            uv.setXY(i, (vertex.length() - 8) / 4, 1);
+        }
+
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xffb6c1,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.45,
+            blending: THREE.AdditiveBlending
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2.3;
+        ring.rotation.y = Math.PI / 8;
+        planet.add(ring);
+
+        const thinRingGeo = new THREE.RingGeometry(13, 13.2, 64);
+        const thinRingMat = new THREE.MeshBasicMaterial({
+            color: 0xff1493,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.6
+        });
+        const thinRing = new THREE.Mesh(thinRingGeo, thinRingMat);
+        thinRing.rotation.x = Math.PI / 2.3;
+        thinRing.rotation.y = Math.PI / 8;
+        planet.add(thinRing);
+
+        const moonGeo = new THREE.SphereGeometry(2.5, 32, 32);
+        const moonMat = new THREE.MeshStandardMaterial({
+            map: createMoonTexture(),
+            roughness: 0.8,
+            emissive: 0xe0e6ed,
+            emissiveIntensity: 0.3
+        });
+        const moon = new THREE.Mesh(moonGeo, moonMat);
+        moon.position.set(-22, 14, -18);
+        scene.add(moon);
+
+        const moonGlowGeo = new THREE.SphereGeometry(2.8, 32, 32);
+        const moonGlowMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.15,
+            blending: THREE.AdditiveBlending
+        });
+        const moonGlow = new THREE.Mesh(moonGlowGeo, moonGlowMat);
+        moon.add(moonGlow);
+
+        const cardsGroup = new THREE.Group();
+        scene.add(cardsGroup);
+
+        const cardMeshes = [];
+        const totalMessages = messages.length;
+
+        messages.forEach((msg, index) => {
+            const texture = createTextCardTexture(msg);
+            const cardGeo = new THREE.PlaneGeometry(5.2, 1.3);
+            const cardMat = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+
+            const cardMesh = new THREE.Mesh(cardGeo, cardMat);
+
+            const phi = Math.acos(-1 + (2 * index) / totalMessages);
+            const theta = Math.sqrt(totalMessages * Math.PI) * phi * 1.2;
+
+            const baseRadius = 11 + (index % 3) * 3.5;
+            const radiusVariation = baseRadius + (Math.sin(index * 3) * 1.5);
+
+            cardMesh.position.setFromSphericalCoords(radiusVariation, phi, theta);
+            cardMesh.userData = {
+                angle: theta,
+                phi: phi,
+                radius: radiusVariation,
+                speed: (0.0015 + (Math.random() * 0.002)) * (index % 2 === 0 ? 1 : -1)
+            };
+
+            cardsGroup.add(cardMesh);
+            cardMeshes.push(cardMesh);
+        });
+
+        const starCount = 1200;
+        const starGeo = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(starCount * 3);
+        const starColors = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount * 3; i += 3) {
+            starPositions[i] = (Math.random() - 0.5) * 160;
+            starPositions[i + 1] = (Math.random() - 0.5) * 160;
+            starPositions[i + 2] = (Math.random() - 0.5) * 160;
+
+            const isPink = Math.random() > 0.4;
+            starColors[i] = 1;
+            starColors[i + 1] = isPink ? 0.6 : 0.8;
+            starColors[i + 2] = isPink ? 0.8 : 1;
+        }
+
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+
+        const starMat = new THREE.PointsMaterial({
+            size: 0.6,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const starField = new THREE.Points(starGeo, starMat);
+        scene.add(starField);
+
+        // --- 6. CONTROL DE REPRODUCCIÓN REPRODUCIENDO VÍA URL ONLINE ---
+        const bgAudio = document.getElementById('bg-audio');
+        const audioBtn = document.getElementById('audio-toggle');
+        const audioIcon = document.getElementById('audio-icon');
+
+        audioBtn.addEventListener('click', () => {
+            if (bgAudio.paused) {
+                bgAudio.play().then(() => {
+                    audioIcon.className = "fa-solid fa-volume-high text-lg text-pink-400";
+                }).catch(err => {
+                    console.error("Error al reproducir el audio:", err);
+                    alert("Asegúrate de estar conectado a internet para cargar la música.");
+                });
+            } else {
+                bgAudio.pause();
+                audioIcon.className = "fa-solid fa-music text-lg";
+            }
+        });
+
+        // --- 7. EFECTOS INTERACTIVOS ---
+        function spawn2DHeart(x, y) {
+            const container = document.getElementById('hearts-container');
+            const heart = document.createElement('div');
+            heart.className = 'heart-particle text-pink-400 text-xl sm:text-2xl';
+            heart.style.left = `${x - 12}px`;
+            heart.style.top = `${y - 12}px`;
+
+            const icons = ['💖', '💕', '✨', '🌸', '👑', '🎂'];
+            heart.innerHTML = icons[Math.floor(Math.random() * icons.length)];
+
+            container.appendChild(heart);
+
+            setTimeout(() => {
+                heart.remove();
+            }, 4000);
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            for(let i = 0; i < 4; i++) {
+                setTimeout(() => {
+                    spawn2DHeart(
+                        e.clientX + (Math.random() - 0.5) * 40,
+                        e.clientY + (Math.random() - 0.5) * 40
+                    );
+                }, i * 100);
+            }
+        });
+
+        setInterval(() => {
+            spawn2DHeart(
+                Math.random() * window.innerWidth,
+                window.innerHeight + 20
+            );
+        }, 800);
+
+        // --- 8. BUCLE DE ANIMACIÓN ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            planet.rotation.y = elapsedTime * 0.12;
+
+            moon.rotation.y = elapsedTime * 0.05;
+            moon.position.y = 14 + Math.sin(elapsedTime * 0.5) * 0.8;
+
+            cardMeshes.forEach((card) => {
+                card.userData.angle += card.userData.speed;
+
+                card.position.x = Math.sin(card.userData.angle) * Math.sin(card.userData.phi) * card.userData.radius;
+                card.position.z = Math.cos(card.userData.angle) * Math.sin(card.userData.phi) * card.userData.radius;
+                card.position.y = Math.cos(card.userData.phi) * card.userData.radius + Math.sin(elapsedTime * 1.5 + card.userData.angle) * 0.4;
+
+                card.lookAt(camera.position);
+            });
+
+            starField.rotation.y = elapsedTime * 0.02;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.onload = () => {
+            animate();
+        };
+    </script>
+</body>
+</html>
